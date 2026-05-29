@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>資產整合計算機</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --asset-color: #27ae60;
+            --debt-color: #e74c3c;
+            --bg-color: #f4f7f9;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: var(--bg-color); 
+            margin: 0; 
+            padding: 8px;
+            -webkit-text-size-adjust: 100%;
+        }
+        .container { max-width: 100%; margin: auto; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }
+        h1 { text-align: center; color: var(--primary-color); font-size: 18px; margin: 8px 0 12px 0; }
+        
+        /* 頂部固定看板 */
+        .summary-dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-color);
+            padding: 6px 0;
+        }
+        .card { padding: 10px 2px; border-radius: 6px; color: white; text-align: center; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+        .bg-assets { background: var(--asset-color); }
+        .bg-debts { background: var(--debt-color); }
+        .bg-net { background: #3498db; }
+        .card div { font-size: 13px; font-weight: bold; margin-top: 2px; word-break: break-all; }
+
+        .section-title { font-size: 15px; font-weight: bold; margin: 15px 0 8px; padding-left: 6px; border-left: 4px solid var(--primary-color); color: var(--primary-color); }
+        
+        /* 手機版左右兩個兩個對齊網格 */
+        .bank-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .input-group {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            box-sizing: border-box;
+        }
+        .input-group label { font-size: 13px; color: #334155; font-weight: bold; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            font-size: 16px;
+            outline: none;
+            box-sizing: border-box;
+            text-align: right;
+        }
+        .input-group input:focus { border-color: #3498db; background-color: #f8fafc; }
+
+        .debt-section { background: #fff5f5; border: 1px solid #fed7d7; padding: 10px; border-radius: 8px; margin-top: 5px; }
+
+        .btn-clear {
+            display: block;
+            margin: 20px auto 5px;
+            background-color: #94a3b8;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-clear:active { background-color: #64748b; }
+        footer { text-align: center; margin-top: 15px; color: #94a3b8; font-size: 11px; padding-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏦 全銀行資產負債整合計算</h1>
+
+    <div class="summary-dashboard">
+        <div class="card bg-assets">總存款<div id="display-assets">NT$ 0</div></div>
+        <div class="card bg-debts">總貸款<div id="display-debts">NT$ 0</div></div>
+        <div class="card bg-net">結餘<div id="display-net">NT$ 0</div></div>
+    </div>
+
+    <div class="section-title">💰 銀行存款項目 (自動存檔)</div>
+    <div class="bank-grid" id="asset-inputs"></div>
+
+    <div class="section-title">📉 貸款負債項目</div>
+    <div class="debt-section">
+        <div class="bank-grid">
+            <div class="input-group" style="border-color: #fec7d7;">
+                <label>台新銀行 (車貸)</label>
+                <input type="number" inputmode="numeric" id="debt-taishin-car" class="debt-input" placeholder="填寫餘額" oninput="calculate()">
+            </div>
+            <div class="input-group" style="border-color: #fec7d7;">
+                <label>台新銀行 (信貸)</label>
+                <input type="number" inputmode="numeric" id="debt-taishin-loan" class="debt-input" placeholder="填寫餘額" oninput="calculate()">
+            </div>
+            <div class="input-group" style="border-color: #fec7d7;">
+                <label>富邦銀行 (信貸)</label>
+                <input type="number" inputmode="numeric" id="debt-fubon-loan" class="debt-input" placeholder="填寫餘額" oninput="calculate()">
+            </div>
+        </div>
+    </div>
+
+    <button class="btn-clear" onclick="clearAll()">🔄 清空所有數據</button>
+
+    <footer>本網頁僅供個人計算使用，資料儲存於手機瀏覽器中。</footer>
+</div>
+
+<script>
+    // 嚴格按照妳這次指定的全新銀行順序
+    const banks = ["玉山銀行", "中國信託", "台新銀行", "富邦銀行", "郵局", "國泰世華"];
+
+    const assetContainer = document.getElementById('asset-inputs');
+    banks.forEach((bank) => {
+        const div = document.createElement('div');
+        div.className = 'input-group';
+        const safeId = `asset-${bank.replace(/\s+/g, '')}`;
+        div.innerHTML = `
+            <label>${bank}</label>
+            <input type="number" inputmode="numeric" id="${safeId}" class="asset-input" placeholder="0" oninput="calculate()">
+        `;
+        assetContainer.appendChild(div);
+    });
+
+    function calculate() {
+        let totalAssets = 0;
+        let totalDebts = 0;
+        let saveData = { assets: {}, debts: {} };
+
+        document.querySelectorAll('.asset-input').forEach(input => {
+            let val = parseFloat(input.value) || 0;
+            totalAssets += val;
+            saveData.assets[input.id] = input.value;
+        });
+
+        document.querySelectorAll('.debt-input').forEach(input => {
+            let val = parseFloat(input.value) || 0;
+            totalDebts += val;
+            saveData.debts[input.id] = input.value;
+        });
+
+        const netValue = totalAssets - totalDebts;
+
+        document.getElementById('display-assets').innerText = "NT$ " + Math.round(totalAssets).toLocaleString();
+        document.getElementById('display-debts').innerText = "NT$ " + Math.round(totalDebts).toLocaleString();
+        document.getElementById('display-net').innerText = "NT$ " + Math.round(netValue).toLocaleString();
+
+        const netCard = document.getElementById('display-net').parentElement;
+        netCard.style.background = netValue < 0 ? "#e67e22" : "#3498db";
+
+        // 更新儲存鑰匙，確保乾淨利落
+        localStorage.setItem('bank_data_phone_v3', JSON.stringify(saveData));
+    }
+
+    function loadData() {
+        const savedJSON = localStorage.getItem('bank_data_phone_v3');
+        if (savedJSON) {
+            const data = JSON.parse(savedJSON);
+            for (let id in data.assets) {
+                const el = document.getElementById(id);
+                if (el) el.value = data.assets[id];
+            }
+            for (let id in data.debts) {
+                const el = document.getElementById(id);
+                if (el) el.value = data.debts[id];
+            }
+            calculate();
+        }
+    }
+
+    function clearAll() {
+        if (confirm("確定要清空所有已填寫的金額嗎？")) {
+            localStorage.removeItem('bank_data_phone_v3');
+            document.querySelectorAll('input').forEach(input => input.value = "");
+            calculate();
+        }
+    }
+
+    window.onload = loadData;
+</script>
+
+</body>
+</html>
